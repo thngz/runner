@@ -1,0 +1,25 @@
+[[exercise]]
+    name = "cashier.py"
+
+    [[exercise.test]]
+    test_name = "test_single_coin_covers_amount_input"
+    input = ["50"]
+    output = ["Amount of coins needed: 1"]
+
+    [[exercise.test]]
+    test_name = "test_two_coin_covers_amount_input"
+    input = ["100"]
+    output = ["Amount of coins needed: 2"]
+
+    [[exercise.test]]
+    test_name = "test_three_coin_covers_amount_input"
+    input = ["150"]
+    output = ["Amount of coins needed: 3"]
+
+[[exercise]]
+    name = "poem.py"
+
+    [[exercise.test]]
+    test_name = "test_poem"
+    input = ["red\nviolets\ncode"]
+    output = ["\nRoses are red,\nviolets are blue,\nI love to code,\nAnd so will you!"]

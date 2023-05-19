@@ -1,0 +1,7 @@
+[[exercise]]
+    name = "a.js"
+
+    [[exercise.test]]
+    test_name = "test_double"
+    input = ["2"]
+    output = ["4"]
