@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Output;
 
 #[derive(Serialize, Debug)]
 struct PistonFile {
@@ -19,6 +18,7 @@ struct PistonInput {
 }
 
 #[derive(Deserialize, Debug)]
+
 struct PistonRunResult {
     stdout: String,
     stderr: String,
@@ -52,14 +52,23 @@ struct Test {
     output: Vec<String>,
 }
 
+#[derive(Deserialize, Clone)]
+struct Runtime {
+    language: String,
+    version: String,
+    aliases: Vec<String>,
+}
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), reqwest::Error> {
     let endpoint = "https://emkc.org/api/v2/piston/execute";
     let client = reqwest::Client::new();
 
     let path = get_path();
     let files = get_files(&path);
     let module = parse_rules(&path);
+
+    let runtime = get_runtime().await?;
 
     for exercise in module.exercise {
         let exercise_files: Vec<&PistonFile> = files
@@ -72,8 +81,8 @@ async fn main() {
         for test in exercise.test {
             for input in test.input {
                 let payload = PistonInput {
-                    language: String::from("javascript"),
-                    version: String::from("1.32.3"),
+                    language: runtime.language.clone(),
+                    version: runtime.version.clone(),
                     files: [PistonFile {
                         name: exercise_file.name.clone(),
                         content: exercise_file.content.clone(),
@@ -81,15 +90,19 @@ async fn main() {
                     stdin: String::from(input),
                 };
 
-                let resp = match client.post(endpoint).json(&payload).send().await {
-                    Ok(resp) => resp.text().await.unwrap(),
-                    Err(err) => panic!("something went wrong: {}", err),
-                };
+                let resp = client
+                    .post(endpoint)
+                    .json(&payload)
+                    .send()
+                    .await?
+                    .text()
+                    .await?;
 
-                let result: PistonOutput = serde_json::from_str(resp.as_str()).unwrap();
+                let result: PistonOutput = serde_json::from_str(&resp).unwrap();
+
                 let piston_output = result.run.output;
+
                 for output in test.output.clone() {
-                    //println!("{} vs {}", piston_output, output);
                     if piston_output.trim() == output.trim() {
                         println!("{} passed ✅", test.test_name);
                     } else {
@@ -100,6 +113,7 @@ async fn main() {
             }
         }
     }
+    Ok(())
 }
 
 fn parse_rules(path: &PathBuf) -> Module {
@@ -139,4 +153,23 @@ fn get_path() -> PathBuf {
     let args: Vec<String> = env::args().collect();
     let path_string = args.get(1).unwrap().to_string();
     return PathBuf::from(&path_string);
+}
+
+async fn get_runtime() -> Result<Runtime, reqwest::Error> {
+    let args: Vec<String> = env::args().collect();
+    let runtime_arg = args.get(2).unwrap().to_string();
+
+    let runtime_url = "https://emkc.org/api/v2/piston/runtimes";
+
+    let resp = reqwest::get(runtime_url).await?;
+
+    let resp_json: Vec<Runtime> =
+        serde_json::from_str(resp.text().await.unwrap().as_str()).unwrap();
+
+    let runtimes: Vec<Runtime> = resp_json
+        .into_iter()
+        .filter(|x| x.language == runtime_arg)
+        .collect();
+
+    return Ok(runtimes.get(0).unwrap().clone());
 }
